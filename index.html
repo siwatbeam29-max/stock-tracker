@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Stock Tracker</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f7f9fc; }
+    h1 { text-align: center; }
+    .tabs { display: flex; justify-content: center; margin-bottom: 20px; }
+    .tab {
+      flex: 1; padding: 10px; cursor: pointer;
+      text-align: center; background: #e0e0e0; border-radius: 8px;
+      margin: 0 5px; font-weight: bold;
+    }
+    .tab.active { background: #4CAF50; color: white; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; }
+    th, td { border: 1px solid #ccc; padding: 10px; text-align: center; }
+    th { background: #f2f2f2; }
+    button { padding: 6px 12px; margin: 2px; border: none; border-radius: 5px; cursor: pointer; }
+    button.restock { background: #4CAF50; color: white; }
+    button.add { background: #2196F3; color: white; }
+    @media (max-width: 600px) {
+      table, thead, tbody, th, td, tr { display: block; }
+      tr { margin-bottom: 10px; }
+      td { text-align: right; padding-left: 50%; position: relative; }
+      td::before {
+        content: attr(data-label);
+        position: absolute; left: 10px; width: 45%; white-space: nowrap; text-align: left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Stock Tracker</h1>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" data-tab="outofstock">Out of Stock</div>
+    <div class="tab" data-tab="restocked">Restocked</div>
+  </div>
+
+  <!-- Out of Stock Content -->
+  <div id="outofstock" class="tab-content active">
+    <h2>Out of Stock Items</h2>
+    <form id="addForm">
+      <input type="text" id="itemName" placeholder="Item Name" required />
+      <input type="date" id="outDate" required />
+      <button type="submit" class="add">Add Item</button>
+    </form>
+    <table id="outTable">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Out of Stock Date</th>
+          <th>Days Out</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <!-- Restocked Content -->
+  <div id="restocked" class="tab-content">
+    <h2>Restocked Items</h2>
+    <table id="restockedTable">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Out of Stock Date</th>
+          <th>Days Out</th>
+          <th>Restock Date</th>
+          <th>Added to Ecommerce</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script>
+    const outTableBody = document.querySelector("#outTable tbody");
+    const restockedTableBody = document.querySelector("#restockedTable tbody");
+
+    let outItems = JSON.parse(localStorage.getItem("outItems")) || [];
+    let restockedItems = JSON.parse(localStorage.getItem("restockedItems")) || [];
+
+    function saveData() {
+      localStorage.setItem("outItems", JSON.stringify(outItems));
+      localStorage.setItem("restockedItems", JSON.stringify(restockedItems));
+    }
+
+    function calcDaysOut(dateStr) {
+      const outDate = new Date(dateStr);
+      const today = new Date();
+      const diffTime = today - outDate;
+      return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    }
+
+    function renderOutTable() {
+      outTableBody.innerHTML = "";
+      outItems.forEach((item, index) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td data-label="Item">${item.name}</td>
+          <td data-label="Out Date">${item.date}</td>
+          <td data-label="Days Out">${calcDaysOut(item.date)}</td>
+          <td data-label="Action"><button class="restock" onclick="restockItem(${index})">Restock</button></td>
+        `;
+        outTableBody.appendChild(tr);
+      });
+    }
+
+    function renderRestockedTable() {
+      restockedTableBody.innerHTML = "";
+      restockedItems.forEach(item => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td data-label="Item">${item.name}</td>
+          <td data-label="Out Date">${item.outDate}</td>
+          <td data-label="Days Out">${calcDaysOut(item.outDate)}</td>
+          <td data-label="Restock Date">${item.restockDate}</td>
+          <td data-label="Ecommerce">${item.ecommerce}</td>
+        `;
+        restockedTableBody.appendChild(tr);
+      });
+    }
+
+    document.getElementById("addForm").addEventListener("submit", e => {
+      e.preventDefault();
+      const name = document.getElementById("itemName").value;
+      const date = document.getElementById("outDate").value;
+      outItems.push({ name, date });
+      saveData();
+      renderOutTable();
+      e.target.reset();
+    });
+
+    function restockItem(index) {
+      const item = outItems[index];
+      const ecommerce = confirm("Did you update this on ecommerce? Click OK for Yes, Cancel for No.") ? "Yes" : "No";
+      restockedItems.push({
+        name: item.name,
+        outDate: item.date,
+        restockDate: new Date().toISOString().split("T")[0],
+        ecommerce
+      });
+      outItems.splice(index, 1);
+      saveData();
+      renderOutTable();
+      renderRestockedTable();
+    }
+
+    // Tab switching
+    document.querySelectorAll(".tab").forEach(tab => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+        document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+        tab.classList.add("active");
+        document.getElementById(tab.dataset.tab).classList.add("active");
+      });
+    });
+
+    // Initial render
+    renderOutTable();
+    renderRestockedTable();
+  </script>
+</body>
+</html>
